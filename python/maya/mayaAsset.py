@@ -1,6 +1,7 @@
-# Try to import maya module to avoid error when the module is loaded outside of maya.
+
 try:
-    from maya import cmds
+    from    maya import cmds
+    import  json
 except:
     pass
 
@@ -10,6 +11,19 @@ class MayaAsset(object):
     def __init__(self, assetRoot=""):
 
         self._root = assetRoot
+
+        self.addMetadatas()
+
+    def metadatasExist(self):
+        ''' Check if the metadatas already exist on the asset root.
+        '''
+        return cmds.attributeQuery("sg_metadatas", node=self._root, exists=True)
+
+    def addMetadatas(self):
+        ''' Add the metadatas attributes on the asset root.
+        '''
+        if (self.metadatasExist() == False):
+            cmds.addAttr(self._root, ln="sg_metadatas", nn="SG Metadatas", dt="string")
 
     def getAssetNamespaces(self):
         ''' Get all the namespace contain in the current asset.
@@ -50,6 +64,30 @@ class MayaAsset(object):
         '''
         return cmds.referenceQuery(self._root, isNodeReferenced=True)
 
+    def isStandin(self):
+        ''' Check if the asset is standin type.
+        '''
+        shapes = cmds.listRelatives(self._root, shapes=True, fullPath=True)
+        if(len(shapes)):
+            if(cmds.nodeType(shapes[0]) == "standin"):
+                return True
+
+        return False
+
+    def isValid(self):
+        ''' Check if the current asset root is a valide production asset.
+
+        Returns:
+            bool: True if valid, otherwise False.
+        '''
+        return self.groupMeshes is not None and \
+        self.groupBones is not None and \
+        self.groupRig is not None and \
+        self.groupMeshesHI is not None and \
+        self.groupMeshesMI is not None and \
+        self.groupMeshesLO is not None and \
+        self.groupMeshesTechnical is not None
+
     def getGroup(self, parent, groupName):
         ''' Get a group from the parent object.
         The group need to be direclty under the asset root in the hierarchy.
@@ -68,20 +106,6 @@ class MayaAsset(object):
                 return group
         
         return None
-
-    def isValid(self):
-        ''' Check if the current asset root is a valide production asset.
-
-        Returns:
-            bool: True if valid, otherwise False.
-        '''
-        return self.groupMeshes is not None and \
-        self.groupBones is not None and \
-        self.groupRig is not None and \
-        self.groupMeshesHI is not None and \
-        self.groupMeshesMI is not None and \
-        self.groupMeshesLO is not None and \
-        self.groupMeshesTechnical is not None
 
     def deleteMeshesLO(self):
         ''' Delete the meshes in the low group.
@@ -102,6 +126,26 @@ class MayaAsset(object):
         ''' Delete the meshes in the middle group.
         '''
         cmds.delete(self.meshesTechnical)
+
+    def cleanMetadatas(self, metadatas):
+        ''' Clean the shotgrid metadatas to keep only the usefull datas.
+
+        Args:
+            metadatas (dict): The shotgrid metadata.
+
+        Returns:
+            dict: The cleaned metadatas.
+        '''
+        cleanedMetadatas = {
+            "code"              : metadatas["code"],
+            "entity"            : metadatas["entity"],
+            "id"                : metadatas["id"],
+            "name"              : metadatas["name"],
+            "task"              : metadatas["task"],
+            "version_number"    : metadatas["version_number"],
+        }
+
+        return cleanedMetadatas
 
     @property
     def name(self):
@@ -221,3 +265,46 @@ class MayaAsset(object):
         reference = self.referenceNode
         if(reference):
             cmds.file(value, loadReference=reference, type="mayaAscii")
+
+    @property
+    def rootNamespace(self):
+        return self._root.split(":")[0] if self._root.find(":") != -1 else None
+
+    @property
+    def sgMetadatas(self):
+        return json.loads(cmds.getAttr("%s.sg_metadatas" % self._root))
+    
+    @sgMetadatas.setter
+    def sgMetadatas(self, value):
+        # Clean the metadatas.
+        metadatas = self.cleanMetadatas(value)
+        # Set the metadatas value.
+        cmds.setAttr("%s.sg_metadatas" % self._root, json.dumps(metadatas), type="string")
+
+    @property
+    def sgCode(self):
+        return self.sgMetadatas["code"]
+
+    @property
+    def sgEntity(self):
+        return self.sgMetadatas["entity"]
+    
+    @property
+    def sgEntityName(self):
+        return self.sgEntity["name"]
+    
+    @property
+    def sgID(self):
+        return self.sgMetadatas["id"]
+
+    @property
+    def sgTask(self):
+        return self.sgMetadatas["task"]
+
+    @property
+    def sgTaskName(self):
+        return self.sgTask["name"]
+
+    @property
+    def sgVersionNumber(self):
+        return self.sgMetadatas["version_number"]

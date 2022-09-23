@@ -3,10 +3,13 @@
 try:
     from maya           import cmds
     from maya           import mel
+    from mtoa.core      import createStandIn
+
     from tank_vendor    import six
 
     import sgtk
     import os
+    import re
 
 except:
     pass
@@ -21,6 +24,16 @@ class PublishTools(object):
     def __init__(self):
         pass
     
+    def getSceneFrameRange(self):
+        ''' Get the start and the end frame of the timeline.
+        
+        Returns:
+            tuple(int, int) : The start and end frame.
+        '''
+        startFrame  = cmds.playbackOptions(q=True, min=True)
+        endFrame    = cmds.playbackOptions(q=True, max=True)
+
+        return startFrame, endFrame
 
     def publishMayaScene(self, asset, path):
         ''' Save the asset as maya scene.
@@ -91,6 +104,38 @@ class PublishTools(object):
 
         # Launch the command.
         mel.eval(abcCommand)
+
+    def hookAlembicLODPublish(self, hookClass, item, lod, isChild=False):
+
+        # Get the maya asset stored in the ui item.
+        asset = None
+        if(isChild is True):
+            asset = item.parent.properties.get("assetObject")
+        else:
+            asset = item.properties.get("assetObject")
+
+        # Get the asset's meshes to export.
+        meshes = None
+        if(lod == "LO"):
+            meshes = asset.meshesLO
+        elif(lod == "MI"):
+            meshes = asset.meshesMI
+        elif(lod == "HI"):
+            meshes = asset.meshesHI
+
+        # Get the scene start and end frame.
+        startFrame, endFrame = self.getSceneFrameRange()
+
+        # get the path to create and publish
+        publish_path = item.properties["path"]
+
+        # ensure the publish folder exists:
+        publish_folder = os.path.dirname(publish_path)
+        hookClass.parent.ensure_folder_exists(publish_folder)
+
+        # Export the asset's meshes in alembic path.
+        self.exportAlembic(meshes, startFrame, endFrame, publish_path)
+
 
     def checkPublishTemplate(self, hookClass, template_name):
         ''' Check if the publish template is defined and valid.
@@ -351,5 +396,152 @@ class PublishTools(object):
         # Reload the master scene.
         path = cmds.file(query=True, sn=True)
         cmds.file(path, force=True, open=True)
+
+    def cleanLineNameSpace(self, line):
+        ''' Clean the namespace for the object or shader name.
+
+        Args:
+            line (str): The line to clean.
+        '''
+        newLine = line
+        matchs = re.findall(r'\"(.*?)\"', newLine)
+        # Check if we find some pattern like "..."
+        if(matchs):
+            # Loop over the patterns.
+            for match in matchs:
+                # Check if the patterns contain : but not :/
+                if(match.find(":") != -1 and match.find(":/") == -1):
+                    # Check if the pattern is a object path.
+                    if(match.find("/") != -1):
+                        # If path, split the object name to remove the namespace.
+                        splitPath       = match.split("/")
+                        objects         = []
+                        # Remove the name space for each object in the pattern path.
+                        for obj in splitPath:
+                            if(obj.find(":") != -1):
+                                splitNameSpace = obj.split(":")
+                                objects.append(splitNameSpace[1])
+                            else:
+                                objects.append(obj)
+                        # Rebuild the object path.
+                        newPath = '/'.join(objects)
+                        # Fix the line.
+                        newLine = newLine.replace(match, newPath)
+                    else:
+                        # Split the name space.
+                        splitNameSpace = match.split(":")
+                        # Fix the line.
+                        newLine = newLine.replace(match, splitNameSpace[1])
+
+        return newLine
+
+    def fixMaterialXGeometryPath(self, filePath, listMeshes):
+        ''' Fix the assign geometry path to match the alembic path.
+
+        Args:
+            filePath (str): The path of the material X.
+        '''
+        print("CLEAN MATERIAL X MESHES PATH TO MATCH ALAMBIC.")
+
+        lines = None
+
+        with open(filePath, 'r') as f:
+            lines = f.readlines() 
+
+        for index, line in enumerate(lines):
+            if(line.find("geom=") != -1):
+                match = re.search(r'geom=\"(.*?)\"', line)
+                if(match):
+                    print(match.group(1))
+                    mesheShape = match.group(1).split("/")[-1].split(":")[-1]
+                    print(mesheShape)
+                    if(mesheShape in listMeshes):
+                        line = line.replace(match.group(1), listMeshes[mesheShape])
+            
+            line = self.cleanLineNameSpace(line)
+
+            lines[index] = line
+
+        with open(filePath, 'w') as f:
+            f.writelines(lines) 
+
+    def publishMaterialX(self, asset, lookName, path, lod):
+        ''' Publish a material X for asset.
+
+        Args:
+            asset       (:class:`MayaObject`)   : The asset from publish the material X.
+            lookName    (str)                   : The name of the look.
+            path        (str)                   : The path to save the material X.
+            lod         (str)                   : The level of detail of the asset to publish material X.
+        '''
+        # Get the list of asset's meshes.
+        meshes = None
+        if(lod == "LO"):
+            meshes = asset.meshesLO
+        elif(lod == "MI"):
+            meshes = asset.meshesMI
+        elif(lod == "HI"):
+            meshes = asset.meshesHI
+
+        # Get the asset namespace.
+        assetNamespace = asset.rootNamespace
+
+        # If meshes in the lod group we can publish the material X for this lod.
+        if(meshes):
+            # Loop over the meshes together the shapes that will be present in the material X file.
+            # We do that to fix the object path in the material X file to be sure that is compatible with the alembic path.
+            shapeMeshes = {}
+            for msh in meshes:
+                mshName = msh.split("|")[-1]
+                shapes = [shape for shape in cmds.listRelatives(msh, allDescendents=True, fullPath=True)
+                            if cmds.nodeType(shape) == "mesh" and
+                            cmds.getAttr("%s.intermediateObject" % shape) == 0]
+                if(len(shapes) > 0):
+                    for shape in shapes:
+                        print(shape)
+                        shapeName = shape.split("|")[-1]
+                        # We build the correct path to replace it in the material X file.
+                        localPath = "|%s%s" % (mshName, shape.split(msh)[-1])
+                        # Clean the namespace in the path hierarchy.
+                        if(assetNamespace):
+                            localPath = localPath.replace("%s:" % assetNamespace, "")
+                        # Replace the path separator | by /
+                        localPath = localPath.replace("|", "/")
+                        print(localPath)
+                        print(shapeName)
+                        # Add the fixed path to the shapes dictionary.
+                        shapeMeshes[shapeName] = localPath
+            # Export the material X.
+            cmds.arnoldExportToMaterialX(meshes, filename=path, look=lookName, fullPath=0, materialExport=0, relative=1, separator="/")
+            # Fix the meshes path in the alembic file.
+            self.fixMaterialXGeometryPath(path, shapeMeshes)
+
+    def hookPublishMaterialXLODPublish(self, hookClass, settings, item, lod, isChild=False):
+        ''' Generic implementation of the publish method for maya scene publish plugin hook.
+
+        Args:
+            settings                    (dict):     The keys are strings, matching
+                                                    the keys returned in the settings property. The values are `Setting`
+                                                    instances.
+            item                        (sgUIItem): Item to process
+        '''
+        # Get the item asset object.
+        if(isChild):
+            asset = item.parent.properties["assetObject"]
+        else:
+            asset = item.properties["assetObject"]
+
+        # get the path to create and publish
+        publish_path = item.properties["path"]
+
+        # ensure the publish folder exists:
+        publish_folder = os.path.dirname(publish_path)
+        hookClass.parent.ensure_folder_exists(publish_folder)
+
+        self.publishMaterialX(asset, "default", publish_path, lod)
+
+
+
+
 
 

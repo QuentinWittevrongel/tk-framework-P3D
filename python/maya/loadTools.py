@@ -6,6 +6,7 @@ try:
     from tank_vendor    import six
 
     import sgtk
+    import os
 
 except:
     pass
@@ -17,7 +18,7 @@ class LoadTools(object):
     def __init__(self):
         pass
 
-    def importAssetAsReference(self, assetName, path):
+    def importAssetAsReference(self, assetName, path, sg_publish_data):
         ''' Import the asset as reference.
 
         Args:
@@ -36,19 +37,35 @@ class LoadTools(object):
         # Create the instance namespace.
         assetNamespace = '%s_%03d' % (assetName, instanceNumber)
         # Import asset as reference.
-        asset = cmds.file(
+        nodes = cmds.file(
             path,
             reference=True,
             loadReferenceDepth="all",
             mergeNamespacesOnClash=False,
             namespace=assetNamespace,
+            returnNewNodes=True
+        )
+        asset = MayaAsset(assetRoot=nodes[1])
+        asset.sgMetadatas = sg_publish_data
+
+        return asset
+
+    def importAsset(self, assetName, path, sg_publish_data):
+        
+        if not os.path.exists(path):
+            raise Exception("File not found on disk - '%s'" % path)
+
+        nodes = cmds.file(
+            path,
+            i=True,
+            type="mayaAscii",
+            returnNewNodes=True
         )
 
-        return MayaAsset(assetRoot=asset)
+        asset = MayaAsset(assetRoot=nodes[0])
+        asset.sgMetadatas = sg_publish_data
 
-
-    def importAsset(self, assetName, path):
-        pass
+        return asset
 
     def importAssetAsStandin(self, assetName, path):
         pass
