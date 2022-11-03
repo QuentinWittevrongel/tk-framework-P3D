@@ -540,8 +540,95 @@ class PublishTools(object):
 
         self.publishMaterialX(asset, "default", publish_path, lod)
 
+    def hookUploadReviewValidate(self, hookClass, settings, item):
+        ''' Generic implementation of the upload method for a review file validate plugin hook.
 
+        Args:
+            hookClass   (:class:)                   : The hook instance.
+            settings    (:class:`PluginSetting`)    : The settings for the plugin.
+            item        (:class:`PublishItem`)      : The item to process.
+        '''
+        # Get the file path to the review file.
+        filePath = item.properties.get("path")
 
+        # Check if the file exist.
+        if(not os.path.exists(filePath)):
+            error_msg = "The file {} does not exist.".format(filePath)
+            hookClass.logger.error(error_msg)
+            raise Exception(error_msg)
 
+    def hookUploadReviewPublish(self, hookClass, settings, item):
+        ''' Generic implementation of the upload method for a review file publish plugin hook.
 
+        Args:
+            hookClass   (:class:)                   : The hook instance.
+            settings    (:class:`PluginSetting`)    : The settings for the plugin.
+            item        (:class:`PublishItem`)      : The item to process.
+        '''
+        # Get the publisher.
+        publisher       = hookClass.parent
+        # Get the publish path.
+        path            = item.properties["path"]
 
+        # Get the file name as the version name.
+        pathComponents  = publisher.util.get_file_path_components(path)
+        publishName     = pathComponents["filename"]        
+        hookClass.logger.debug("Publish name: {0}".format(publishName))
+
+        # Create the version data.
+        hookClass.logger.info("Creating Version...")
+        versionData = {
+            "project"           : item.context.project,
+            "code"              : publishName,
+            "description"       : item.description,
+            "entity"            : hookClass._getVersionEntity(item),
+            "sg_task"           : item.context.task,
+            "sg_path_to_movie"  : path
+        }
+
+        # Create the version.
+        version = publisher.shotgun.create("Version", versionData)
+        hookClass.logger.info("Version created!")
+
+        # Stash the version info in the item just in case
+        item.properties["sg_version_data"] = version
+
+        # Upload the movie to shotgrid.
+        hookClass.logger.info("Uploading content...")
+
+        # On windows, ensure the path is utf-8 encoded to avoid issues with the shotgun api.
+        if(sgtk.util.is_windows()):
+            uploadPath = six.ensure_text(path)
+        else:
+            uploadPath = path
+
+        # Upload the movie on shotgrid.
+        hookClass.parent.shotgun.upload(
+            "Version", version["id"], uploadPath, "sg_uploaded_movie"
+        )
+
+        # Log for the user.
+        hookClass.logger.info("Upload complete!")
+
+    def hookUploadReviewFinalize(self, hookClass, settings, item):
+        ''' Generic implementation of the upload method for a review file finalize plugin hook.
+
+        Args:
+            hookClass   (:class:)                   : The hook instance.
+            settings    (:class:`PluginSetting`)    : The settings for the plugin.
+            item        (:class:`PublishItem`)      : The item to process.
+        '''
+        # Retrieve data from the properties.
+        path        = item.properties["path"]
+        version     = item.properties["sg_version_data"]
+        # Add a logger info to show version on shotgrid.
+        hookClass.logger.info(
+            'Version uploaded for file: {0}.'.format(path),
+            extra={
+                "action_show_in_shotgun": {
+                    "label"     : "Show Version",
+                    "tooltip"   : "Reveal the version in ShotGrid.",
+                    "entity"    : version,
+                }
+            },
+        )
