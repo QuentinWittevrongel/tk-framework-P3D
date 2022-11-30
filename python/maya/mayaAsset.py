@@ -233,19 +233,27 @@ class MayaAsset(object):
 
     @property
     def meshesHI(self):
-        return cmds.listRelatives(self.groupMeshesHI, children=True, fullPath=True, type="transform")
+        content = cmds.listRelatives(self.groupMeshesHI, children=True, fullPath=True, type="transform")
+        content = content if content else []
+        return content
 
     @property
     def meshesMI(self):
-        return cmds.listRelatives(self.groupMeshesMI, children=True, fullPath=True, type="transform")
+        content = cmds.listRelatives(self.groupMeshesMI, children=True, fullPath=True, type="transform")
+        content = content if content else []
+        return content
 
     @property
     def meshesLO(self):
-        return cmds.listRelatives(self.groupMeshesLO, children=True, fullPath=True, type="transform")
+        content = cmds.listRelatives(self.groupMeshesLO, children=True, fullPath=True, type="transform")
+        content = content if content else []
+        return content
 
     @property
     def meshesTechnical(self):
-        return cmds.listRelatives(self.groupMeshesTechnical, children=True, fullPath=True, type="transform")
+        content = cmds.listRelatives(self.groupMeshesTechnical, children=True, fullPath=True, type="transform")
+        content = content if content else []
+        return content
 
     @property
     def referenceNode(self):
