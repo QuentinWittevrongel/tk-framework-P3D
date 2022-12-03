@@ -26,31 +26,51 @@ class MayaAsset(object):
             cmds.addAttr(self._root, ln="sg_metadatas", nn="SG Metadatas", dt="string")
 
     def getAssetNamespaces(self):
-        ''' Get all the namespace contain in the current asset.
-        '''
-        # Get the all the asset elements.
-        assetDatas = cmds.listRelatives(self._root, allDescendents=True, type="transform")
-        
-        assetNamespaces = []
+        ''' Get all the namespaces contained in the current asset.
 
+        Returns:
+            list    : The list of namespaces.
+        '''
+        # Get the all the asset child transforms.
+        assetDatas = cmds.listRelatives(self._root, allDescendents=True, type="transform")
+
+        # Store all the namespaces in a list.
+        assetNamespaces = []
         for element in assetDatas:
+            # Check if the name contains a namespace>
             if(element.find(":") != -1):
+                # Split the name and the namespace.
                 namespace = element.split(":")[0]
+                # Check if the namespace is not already in the list.
                 if not(namespace in assetNamespaces):
+                    # Add the namespace to the list.
                     assetNamespaces.append(namespace)
 
+        # Return the list of namespaces.
         return assetNamespaces
 
     def freezeNamespace(self):
-        ''' Include the namespace to the object naming.
+        ''' Include the namespace in the object naming.
         '''
-        # Get the all namespace in the current asset.
+        # Get the all namespaces in the current asset.
         allNamespaces = self.getAssetNamespaces()
+        # Set the current namespace to root.
+        cmds.namespace(setNamespace=":")
         # Loop over the asset to merge the namespace with the object name.
         for np in allNamespaces:
-            npObjects = cmds.namespaceInfo(np, listNamespace=True)
+            # Get all the objects in the namespace.
+            # Use the full path to avoid errors if two objects have the same name.
+            npObjects = cmds.namespaceInfo(np, listNamespace=True, dagPath=True)
+            # Reorder the objects by path length, to have the farthest objects renamed first.
+            # This will avoid errors where Maya can no longer find an object because
+            # an element in the path has changed.
+            npObjects.sort(key = lambda x : len(x.split('|')) , reverse = True)
+            # Loop over the objects and rename them.
             for obj in npObjects:
-                newName = obj.replace(":", "_")
+                # Get the shortname.
+                shortName = obj.split("|")[-1]
+                # Replace the : by a _.
+                newName = shortName.replace(":", "_")
                 cmds.rename(obj, newName)
 
     def asNameSpace(self):
@@ -107,25 +127,70 @@ class MayaAsset(object):
         
         return None
 
+    def getChildReferences(self):
+        ''' Get all the references contained in the current asset.
+        For instance, the modules for the rig.
+
+        Returns:
+            list    : The list of references.
+        '''
+        # Get the all the asset child transforms.
+        assetDatas = cmds.listRelatives(self._root, allDescendents=True, type="transform", fullPath=True)
+
+        # Store all the referenceNodes in a list.
+        referencesNodes = []
+        for element in assetDatas:
+            # Check if the element if referenced.
+            if( cmds.referenceQuery(element, isNodeReferenced=True) ):
+                # Get the reference node.
+                refNode = cmds.referenceQuery(element, referenceNode=True)
+                # Check if the reference node is not already in the list.
+                if(not refNode in referencesNodes):
+                    # Add the reference node to the list.
+                    referencesNodes.append(refNode)
+                
+        # Return the list of references.
+        return referencesNodes
+
     def deleteMeshesLO(self):
         ''' Delete the meshes in the low group.
         '''
+        # Delete the low meshes.
         cmds.delete(self.meshesLO)
+        # Delete the low techincal group.
+        cmds.delete(self.meshesTechnicalLO)
 
     def deleteMeshesMI(self):
         ''' Delete the meshes in the middle group.
         '''
+        # Delete the mid meshes.
         cmds.delete(self.meshesMI)
+        # Delete the mid techincal group.
+        cmds.delete(self.meshesTechnicalMI)
 
     def deleteMeshesHI(self):
         ''' Delete the meshes in the middle group.
         '''
+        # Delete the high meshes.
         cmds.delete(self.meshesHI)
+        # Delete the high techincal group.
+        cmds.delete(self.meshesTechnicalHI)
 
     def deleteMeshesTechnical(self):
-        ''' Delete the meshes in the middle group.
+        ''' Delete the meshes in the technical group.
         '''
         cmds.delete(self.meshesTechnical)
+
+    def importChildReferences(self):
+        ''' Import all the references contained in the current asset.
+        '''
+        # Get the references.
+        references = self.getChildReferences()
+        # Loop over the references.
+        for ref in references:
+            # Import the reference.
+            refFile = cmds.referenceQuery(ref, filename=True)
+            cmds.file(refFile, importReference=True)
 
     def cleanMetadatas(self, metadatas):
         ''' Clean the shotgrid metadatas to keep only the usefull datas.
@@ -232,6 +297,22 @@ class MayaAsset(object):
         return self.getGroup(self.groupMeshes, "Technical_GRP")
 
     @property
+    def groupMeshesTechnicalAll(self):
+        return self.getGroup(self.groupMeshesTechnical, "ALL_GRP")
+
+    @property
+    def groupMeshesTechnicalHI(self):
+        return self.getGroup(self.groupMeshesTechnical, "HI_GRP")
+    
+    @property
+    def groupMeshesTechnicalMI(self):
+        return self.getGroup(self.groupMeshesTechnical, "MI_GRP")
+    
+    @property
+    def groupMeshesTechnicalLO(self):
+        return self.getGroup(self.groupMeshesTechnical, "LO_GRP")
+
+    @property
     def meshesHI(self):
         content = cmds.listRelatives(self.groupMeshesHI, children=True, fullPath=True, type="transform")
         content = content if content else []
@@ -252,6 +333,30 @@ class MayaAsset(object):
     @property
     def meshesTechnical(self):
         content = cmds.listRelatives(self.groupMeshesTechnical, children=True, fullPath=True, type="transform")
+        content = content if content else []
+        return content
+
+    @property
+    def meshesTechnicalGlobal(self):
+        content = cmds.listRelatives(self.groupMeshesTechnicalGlobal, children=True, fullPath=True, type="transform")
+        content = content if content else []
+        return content
+
+    @property
+    def meshesTechnicalHI(self):
+        content = cmds.listRelatives(self.groupMeshesTechnicalHI, children=True, fullPath=True, type="transform")
+        content = content if content else []
+        return content
+
+    @property
+    def meshesTechnicalMI(self):
+        content = cmds.listRelatives(self.groupMeshesTechnicalMI, children=True, fullPath=True, type="transform")
+        content = content if content else []
+        return content
+
+    @property
+    def meshesTechnicalLO(self):
+        content = cmds.listRelatives(self.groupMeshesTechnicalLO, children=True, fullPath=True, type="transform")
         content = content if content else []
         return content
 
