@@ -14,10 +14,10 @@ try:
 except:
     pass
 
-__ABC_COMMAND_WORLD__       = 'AbcExport -j "-frameRange <startFrame> <endFrame> -noNormals -ro -stripNamespaces -uvWrite -worldSpace -writeVisibility -writeUVSets -dataFormat ogawa -root <listObjects> -file <filePath>"'
-__ABC_COMMAND_LOCAL__       = 'AbcExport -j "-frameRange <startFrame> <endFrame> -noNormals -ro -stripNamespaces -uvWrite -writeVisibility -writeUVSets -dataFormat ogawa -root <listObjects> -file <filePath>"'
-__ABC2_COMMAND_WORLD__      = 'AbcExport2 -j "-frameRange <startFrame> <endFrame> -noNormals -ro -stripNamespaces -uvWrite -worldSpace -writeVisibility -writeUVSets -dataFormat ogawa -root <listObjects> -file <filePath>"'
-__ABC2_COMMAND_LOCAL__      = 'AbcExport2 -j "-frameRange <startFrame> <endFrame> -noNormals -ro -stripNamespaces -uvWrite -writeVisibility -writeUVSets -dataFormat ogawa -root <listObjects> -file <filePath>"'
+__ABC_COMMAND_WORLD__       = 'AbcExport -j "-frameRange <startFrame> <endFrame> -noNormals -renderableOnly <stripNamespaces> -uvWrite -worldSpace -writeVisibility -writeUVSets -dataFormat ogawa -root <listObjects> -file <filePath>"'
+__ABC_COMMAND_LOCAL__       = 'AbcExport -j "-frameRange <startFrame> <endFrame> -noNormals -renderableOnly <stripNamespaces> -uvWrite -writeVisibility -writeUVSets -dataFormat ogawa -root <listObjects> -file <filePath>"'
+__ABC2_COMMAND_WORLD__      = 'AbcExport2 -j "-frameRange <startFrame> <endFrame> -noNormals -renderableOnly <stripNamespaces> -uvWrite -worldSpace -writeVisibility -writeUVSets -dataFormat ogawa -root <listObjects> -file <filePath>"'
+__ABC2_COMMAND_LOCAL__      = 'AbcExport2 -j "-frameRange <startFrame> <endFrame> -noNormals -renderableOnly <stripNamespaces> -uvWrite -writeVisibility -writeUVSets -dataFormat ogawa -root <listObjects> -file <filePath>"'
 
 class PublishTools(object):
     ''' Commun publish functions for Maya.'''
@@ -98,6 +98,20 @@ class PublishTools(object):
 
     # Export functions.
 
+    def exportMayaSelection(self, selection, path):
+        ''' Save the selection as maya scene.
+
+        Args:
+            selection   (list(str)):   The selection to save in the maya file.
+            path        (str):          The path to save the maya file.
+        '''
+        # Select the asset before save.
+        cmds.select(clear=True)
+        cmds.select(selection)
+
+        # Save the asset.
+        cmds.file(path, force=True, type="mayaAscii", exportSelected=True, preserveReferences=True)
+
     def exportMayaAsset(self, asset, path):
         ''' Save the asset as maya scene.
 
@@ -105,12 +119,7 @@ class PublishTools(object):
             asset   (:class:`MayaAsset`):   The asset to save in the maya file.
             path    (str):                  The path to save the maya file.
         '''
-        # Select the asset before save.
-        cmds.select(clear=True)
-        cmds.select(asset.fullname)
-
-        # Save the asset.
-        cmds.file(path, force=True, type="mayaAscii", exportSelected=True)
+        self.exportMayaSelection(asset.fullname, path)
 
     def exportMayaAssetRig(self, asset, filePath):
         ''' Export the asset rig as a maya ascii file.
@@ -133,7 +142,16 @@ class PublishTools(object):
         # Export the meshes.
         cmds.file(filePath, force=True, options="v=0", typ="mayaAscii", exportSelected=True, preserveReferences=False)
 
-    def exportAlembic(self, meshes, startFrame, endFrame, filePath, exportABCVersion=1, spaceType="world"):
+    def exportMayaEnvironment(self, environment, path):
+        ''' Export the environment as a maya ascii file.
+
+        Args:
+            environment (:class:`MayaEnvironment`)  : The environment to export.
+            path        (str)                       : The full path to export the maya file.
+        '''
+        self.exportMayaSelection(environment.fullname, path)
+
+    def exportAlembic(self, meshes, startFrame, endFrame, filePath, exportABCVersion=1, spaceType="world", stripNamespace=True):
         ''' Export the list of meshes in an alembic file.
 
         Args:
@@ -158,6 +176,12 @@ class PublishTools(object):
                 abcCommand = __ABC2_COMMAND_WORLD__
             else:
                 abcCommand = __ABC2_COMMAND_LOCAL__
+
+        # Optionnaly enable strip namespace.
+        if(stripNamespace):
+            abcCommand.replace("<stripNamespaces>", "-stripNamespaces")
+        else:
+            abcCommand.replace("<stripNamespaces>", "")
 
         # Replace the command tags.
         abcCommand = abcCommand.replace("<startFrame>", str(startFrame))
@@ -565,8 +589,6 @@ class PublishTools(object):
 
             meshes = asset.meshesHI
 
-
-
         if(useFrameRange):
             # Get the scene start and end frame.
             startFrame, endFrame = self.getSceneFrameRange()
@@ -621,6 +643,75 @@ class PublishTools(object):
         hookClass.parent.ensure_folder_exists(publish_folder)
 
         self.exportMaterialX(asset, "default", publish_path, lod)
+
+    # Environment Publish functions.
+    def hookPublishMayaEnvironmentPublish(self, hookClass, settings, item, isChild=False):
+        ''' Generic implementation of the publish method for maya environment publish plugin hook.
+
+        Args:
+            settings                    (dict):     The keys are strings, matching
+                                                    the keys returned in the settings property. The values are `Setting`
+                                                    instances.
+            item                        (sgUIItem): Item to process
+        '''
+        # Get the item maya object.
+        if(isChild):
+            mayaObject = item.parent.properties["mayaObject"]
+        else:
+            mayaObject = item.properties["mayaObject"]
+
+        # get the path to create and publish
+        publish_path = item.properties["path"]
+
+        # ensure the publish folder exists:
+        publish_folder = os.path.dirname(publish_path)
+        hookClass.parent.ensure_folder_exists(publish_folder)
+
+        self.exportMayaEnvironment(mayaObject, publish_path)
+
+    # Environment Alembic Publish functions.
+    def hookPublishAlembicEnvironmentPublish(self, hookClass, settings, item, useFrameRange=False, isChild=False):
+        ''' Generic implementation of the publish method for alembic publish environment plugin hook.
+
+        Args:
+            settings                    (dict):     The keys are strings, matching
+                                                    the keys returned in the settings property. The values are `Setting`
+                                                    instances.
+            item                        (sgUIItem): Item to process
+        '''
+        # Get the item maya object.
+        if(isChild):
+            mayaObject = item.parent.properties["mayaObject"]
+        else:
+            mayaObject = item.properties["mayaObject"]
+
+        if(useFrameRange):
+            # Get the scene start and end frame.
+            startFrame, endFrame = self.getSceneFrameRange()
+        else:
+            startFrame = 1
+            endFrame = 1
+
+        # get the path to create and publish
+        publish_path = item.properties["path"]
+
+        # ensure the publish folder exists:
+        publish_folder = os.path.dirname(publish_path)
+        hookClass.parent.ensure_folder_exists(publish_folder)
+
+        # Get the environment's asset's main buffers.
+        meshes = mayaObject.getAllAssetsMainBuffers()
+
+        # Export the buffers as alembic.
+        self.exportAlembic(
+            meshes,
+            startFrame,
+            endFrame,
+            publish_path,
+            exportABCVersion=2,
+            spaceType="local",
+            stripNamespace=False
+        )
 
     # Post Publish functions.
 
