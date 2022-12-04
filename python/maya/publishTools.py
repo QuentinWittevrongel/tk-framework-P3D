@@ -256,7 +256,7 @@ class PublishTools(object):
             bool: True is valid, otherwise False.
         '''
         publisher = hookClass.parent
-        # ensure the publish template is defined and valid and that we also have
+        # ensure the publish template is defined and valid.
         publish_template = publisher.get_template_by_name(template_name)
         if not publish_template:
             hookClass.logger.debug(
