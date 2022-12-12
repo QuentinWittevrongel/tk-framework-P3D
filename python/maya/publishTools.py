@@ -179,9 +179,9 @@ class PublishTools(object):
 
         # Optionnaly enable strip namespace.
         if(stripNamespace):
-            abcCommand.replace("<stripNamespaces>", "-stripNamespaces")
+            abcCommand = abcCommand.replace("<stripNamespaces>", "-stripNamespaces")
         else:
-            abcCommand.replace("<stripNamespaces>", "")
+            abcCommand = abcCommand.replace("<stripNamespaces>", "")
 
         # Replace the command tags.
         abcCommand = abcCommand.replace("<startFrame>", str(startFrame))
@@ -388,7 +388,7 @@ class PublishTools(object):
 
         # Check if the asset root is a valid asset.
         if not (mayaAsset.isValid()):
-            error_msg = "The asset %s is not a valid. Please check the asset group structure."
+            error_msg = "The asset {} is not a valid. Please check the asset group structure.".format(mayaAsset.fullname)
             hookClass.logger.error(error_msg)
             raise Exception(error_msg)
 

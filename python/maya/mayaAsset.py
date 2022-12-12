@@ -106,7 +106,12 @@ class MayaAsset(object):
         self.groupMeshesHI is not None and \
         self.groupMeshesMI is not None and \
         self.groupMeshesLO is not None and \
-        self.groupMeshesTechnical is not None
+        self.groupMeshesTechnical is not None and \
+        self.groupMeshesTechnicalAll is not None and \
+        self.groupMeshesTechnicalHI is not None and \
+        self.groupMeshesTechnicalMI is not None and \
+        self.groupMeshesTechnicalLO is not None
+
 
     def getGroup(self, parent, groupName):
         ''' Get a group from the parent object.
@@ -151,6 +156,35 @@ class MayaAsset(object):
                 
         # Return the list of references.
         return referencesNodes
+
+    def getBuffers(self, parentGroup, relativePath=False):
+        ''' Get all the buffers contained in the current group.
+
+        Args:
+            parentGroup     (str)               : The parent group of the buffers.
+            relativePath    (bool,  optional)   : If True, the path will be relative to the parent group.
+                                                Defaults to False.
+
+        Returns:
+            list                                : The list of buffers with.
+        '''
+        # Get the all the asset child transforms.
+        assetDatas = cmds.listRelatives(parentGroup, allDescendents=True, type="transform", fullPath=True)
+        # List relatives can return None if there is no transform.
+        if(not assetDatas):
+            return []
+
+        # Get all the transforms that ends with _BUF.
+        buffers = [node for node in assetDatas
+            if (node.endswith('_BUF'))
+        ]
+
+        # If the relative path is True.
+        if(relativePath):
+            buffers = [buffer.replace(parentGroup, "") for buffer in buffers]
+
+        # Return the list of buffers.
+        return buffers
 
     def deleteMeshesLO(self):
         ''' Delete the meshes in the low group.
