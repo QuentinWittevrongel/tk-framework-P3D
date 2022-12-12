@@ -11,50 +11,117 @@ try:
 except:
     pass
 
-from .mayaAsset import MayaAsset
+from .mayaObject    import MayaObject
+from .mayaAsset     import MayaAsset
 
 class LoadTools(object):
 
     def __init__(self):
         pass
 
-    def importAssetAsReference(self, assetName, path, sg_publish_data):
-        ''' Import the asset as reference.
+    def importAsReference(self, name, path, sg_publish_data):
+        ''' Import the file as reference.
 
         Args:
-            assetName   (str): The asset name.
-            path        (str): The path to reference.
+            name                (str)   : The entity name.
+            path                (str)   : The path to reference.
+            sg_publish_data     (dict)  : The shotgrid publish data.
 
         Return:
-            :class:`MayaAsset`: The new aasset instance.
+            :class:`MayaObject`         : The new object instance.
         '''
-        # Check if instance already exist in the current scene.
-        lastInstance = self.getAssetLastInstances(assetName)
-        # Define the current instance number.
-        instanceNumber = 1
-        if(lastInstance):
-            instanceNumber = lastInstance.instance + 1
-        # Create the instance namespace.
-        assetNamespace = '%s_%03d' % (assetName, instanceNumber)
-        # Import asset as reference.
-        nodes = cmds.file(
-            path,
-            reference=True,
-            loadReferenceDepth="all",
-            mergeNamespacesOnClash=False,
-            namespace=assetNamespace,
-            returnNewNodes=True
-        )
-        asset = MayaAsset(assetRoot=nodes[1])
-        asset.sgMetadatas = sg_publish_data
-
-        return asset
-
-    def importAsset(self, assetName, path, sg_publish_data):
-        
+        # Check if the file exists on disk.
         if not os.path.exists(path):
             raise Exception("File not found on disk - '%s'" % path)
 
+        # Get the last instance number.
+        lastInstanceNumber = self.getLastInstanceNumber(name)
+        # Create the instance name.
+        instanceName = '{NAME}_{INSTANCE:03d}'.format(NAME=name, INSTANCE=lastInstanceNumber + 1)
+
+        # Import file as reference.
+        nodes = cmds.file(
+            path,
+            reference               = True,
+            loadReferenceDepth      = "all",
+            mergeNamespacesOnClash  = False,
+            namespace               = instanceName,
+            returnNewNodes          = True
+        )
+
+        # Get the root nodes.
+        rootNodes = [node for node in nodes if 
+            cmds.nodeType(node) == 'transform' and
+            cmds.listRelatives(node, parent=True) is None
+        ]
+
+        # Get the Maya object and set the shotgrid metadata.
+        mayaObject = MayaObject(assetRoot=rootNodes[0])
+        mayaObject.sgMetadatas = sg_publish_data
+
+        # Return the Maya object.
+        return mayaObject
+
+    def importAsReferenceWithoutNamespace(self, name, path, sg_publish_data):
+        ''' Import the file as reference without namespace.
+
+        Args:
+            name                (str)   : The entity name.
+            path                (str)   : The path to reference.
+            sg_publish_data     (dict)  : The shotgrid publish data.
+
+        Return:
+            :class:`MayaObject`         : The new object instance.
+        '''
+        # Check if the file exists on disk.
+        if not os.path.exists(path):
+            raise Exception("File not found on disk - '%s'" % path)
+
+        # Get the last instance number.
+        lastInstanceNumber = self.getLastInstanceNumber(name)
+        # Create the instance name.
+        instanceName = '{NAME}_{INSTANCE:03d}'.format(NAME=name, INSTANCE=lastInstanceNumber + 1)
+
+        # Import the file as reference.
+        nodes = cmds.file(
+            path,
+            reference               = True,
+            loadReferenceDepth      = 'all',
+            mergeNamespacesOnClash  = False,
+            namespace               = ':',
+            referenceNode           = '{}RN'.format(instanceName),
+            returnNewNodes          = True
+        )
+
+        # Get the root nodes.
+        rootNodes = [node for node in nodes if 
+            cmds.nodeType(node) == 'transform' and
+            cmds.listRelatives(node, parent=True) is None
+        ]
+
+        # Get the Maya object and set the shotgrid metadata.
+        mayaObject = MayaObject(root=rootNodes[0])
+        mayaObject.sgMetadatas = sg_publish_data
+
+        # Return the Maya object.
+        return mayaObject
+
+    def importHard(self, name, path, sg_publish_data):
+        ''' Import the file in the scene.
+
+        Args:
+            name                (str)   : The entity name.
+            path                (str)   : The path to reference.
+            sg_publish_data     (dict)  : The shotgrid publish data.
+
+        Return:
+            :class:`MayaObject`         : The new object.
+        '''
+        # Check if the file exists on disk.
+        if not os.path.exists(path):
+            raise Exception("File not found on disk - '%s'" % path)
+
+        # Import the file.
         nodes = cmds.file(
             path,
             i=True,
@@ -62,10 +129,17 @@ class LoadTools(object):
             returnNewNodes=True
         )
 
-        asset = MayaAsset(assetRoot=nodes[0])
-        asset.sgMetadatas = sg_publish_data
+        # Get the root nodes.
+        rootNodes = [node for node in nodes if 
+            cmds.nodeType(node) == 'transform' and
+            cmds.listRelatives(node, parent=True) is None
+        ]
 
-        return asset
+        # Get the Maya object and set the shotgrid metadata.
+        mayaObject = MayaObject(root=rootNodes[0])
+        mayaObject.sgMetadatas = sg_publish_data
+
+        return mayaObject
 
     def importAssetAsStandin(self, assetName, path):
         pass
@@ -125,3 +199,47 @@ class LoadTools(object):
                 lastInstance    = asset
 
         return lastInstance
+
+    def getInstancesByName(self, name):
+        ''' Get the instances using the name.
+
+        Args:
+            name    (str)   : The name to look for.
+
+        Returns:
+            list(str)       : A list of the instance names.
+        '''
+        # This will take into account the namespaces and the references nodes
+        # as we can load references without namespaces.
+
+        # Filter the namespaces to keep only the ones with the same name.
+        instances = [ns for ns in cmds.namespaceInfo(listOnlyNamespaces=True) if ns.startswith(name + '_')]
+        # Filter the references nodes to keep only the ones with the same name.
+        references = [ref for ref in cmds.ls(type='reference') if ref.startswith(name + '_')]
+        # Merge the two lists.
+        for refNode in references:
+            # Get the name without the RN tag.
+            refName = refNode.replace('RN', '')
+            # Check if the reference node is not already in the instances list.
+            if(refName not in instances):
+                instances.append(refName)
+
+        return instances
+
+    def getLastInstanceNumber(self, name):
+        ''' Get the last instance number of the asset.
+
+        Args:
+            name    (str)   : The asset name.
+
+        Returns:
+            int             : The last instance number.
+        '''
+        # Get the instances.
+        instances = self.getInstancesByName(name)
+        # Get the last instance number.
+        lastInstanceNumber = 0
+        if(instances):
+            lastInstanceNumber = max([int(ns.split('_')[-1]) for ns in instances])
+
+        return lastInstanceNumber
