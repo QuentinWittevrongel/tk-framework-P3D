@@ -80,7 +80,7 @@ class LoadTools(object):
         # Get the last instance number.
         lastInstanceNumber = self.getLastInstanceNumber(name)
         # Create the instance name.
-        instanceName = '{NAME}_{INSTANCE:03d}'.format(NAME=name, INSTANCE=lastInstanceNumber + 1)
+        instanceName = '{NAME}_{INSTANCE:03d}_WN'.format(NAME=name, INSTANCE=lastInstanceNumber + 1)
 
         # Import the file as reference.
         nodes = cmds.file(
