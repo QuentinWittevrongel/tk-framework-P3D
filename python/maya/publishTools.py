@@ -139,6 +139,9 @@ class PublishTools(object):
         # Select the asset.
         cmds.select(asset.fullname, replace=True)
 
+        # Add to the selection the script nodes.
+        cmds.select(cmds.ls(type='script'), add=True)
+
         # Export the meshes.
         cmds.file(filePath, force=True, options="v=0", typ="mayaAscii", exportSelected=True, preserveReferences=False)
 
