@@ -11,6 +11,9 @@ except:
 class MayaEnvironment(MayaObject):
     ''' Object representing an environment in Maya.'''
 
+    def isValid(self):
+        return self.groupMeshes
+
     def getGroup(self, parent, groupName):
         ''' Get a group from the parent object.
         The group need to be direclty under the asset root in the hierarchy.
@@ -90,6 +93,39 @@ class MayaEnvironment(MayaObject):
 
         # Return the buffers.
         return buffers
+
+    def getAnimation(self, animated=True, deformed=True):
+        ''' Get the animation of the environment.
+        
+        Args:
+            animated    (bool,  optional)   : Get the animated objects.
+                                            Defaults to True.
+            deformed    (bool,  optional)   : Get the deformed objects.
+                                            Defaults to True.
+        
+        Returns:
+            list, list                      : The animated and deformed list of object.
+        '''
+        # Get the assets.
+        assets = self.getAssets()
+
+        # Get the animation of the assets.
+        animatedAssets = []
+        deformedAssets = []
+        for asset in assets:
+            
+            if(deformed):
+                # The asset must be deformed.
+                if(asset.isDeformed()):
+                    deformedAssets.append(asset)
+            
+            if(animated):
+                # The asset must have animation without being deformed.
+                if(asset.isAnimated() and not asset.isDeformed()):
+                    animatedAssets.append(asset)
+
+        # Return the animation.
+        return animatedAssets, deformedAssets
 
     @property
     def groupMeshes(self):

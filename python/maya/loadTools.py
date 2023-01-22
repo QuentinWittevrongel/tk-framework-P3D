@@ -56,7 +56,7 @@ class LoadTools(object):
         ]
 
         # Get the Maya object and set the shotgrid metadata.
-        mayaObject = MayaObject(assetRoot=rootNodes[0])
+        mayaObject = MayaObject(root=rootNodes[0])
         mayaObject.sgMetadatas = sg_publish_data
 
         # Return the Maya object.

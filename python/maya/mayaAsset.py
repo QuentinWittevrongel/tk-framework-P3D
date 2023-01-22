@@ -246,11 +246,72 @@ class MayaAsset(object):
 
         return cleanedMetadatas
 
+    def hasKeyframe(self, node):
+        ''' Check if the node has keyframe.
+
+        Args:
+            node (str): The node to check.
+
+        Returns:
+            bool: True if the node has keyframe, False otherwise.
+        '''
+        return cmds.keyframe(node, query=True, name=True) != None
+
+    def isAnimated(self):
+        ''' Check if the asset is animated.
+
+        Returns:
+            bool: True if the node is animated, False otherwise.
+        '''
+        # Get the controllers.
+        controllers = cmds.listRelatives(
+            self.groupRig,
+            allDescendents = True,
+            type='transform'
+        )
+        if(not controllers):
+            return False
+        
+        hasKey = False
+        for con in controllers:
+            # Skip if the controller is not tag as controller.
+            if(not con.endswith('_CON')):
+                continue
+            
+            # Check if the controller has keyframe.
+            if(self.hasKeyframe(con)):
+                hasKey = True
+                break
+        
+        return hasKey
+
+    def isDeformed(self):
+        ''' Check if the asset is deformed.
+
+        Returns:
+            bool: True if the node is deformed, False otherwise.
+        '''
+        # Get the shapes.
+        shapes = cmds.listRelatives(
+            [
+            self.groupMeshesHI,
+            self.groupMeshesMI,
+            self.groupMeshesLO,
+            ],
+            allDescendents = True,
+            type='mesh'
+        )
+
+        # Get the origShapes.
+        origShapes = [shape for shape in shapes if shape.endswith('ShapeOrig')]
+
+        return True if len(origShapes) > 0 else False
+
     @property
     def name(self):
         if(self.asNameSpace()):
-            return self._root.split(":")[0].split("_")[0]
-        return self._root.split("_")[0]
+            return self._root.split('|')[-1].split(":")[0].split("_")[0]
+        return self._root.split('|')[-1].split("_")[0]
 
     @name.setter
     def name(self, value):
@@ -269,7 +330,7 @@ class MayaAsset(object):
     @property
     def instance(self):
         if(self.isReferenced()):
-            return  int(self._root.split(":")[0].split("_")[1])
+            return int(self._root.split('|')[-1].split(":")[0].split("_")[1])
         return None
 
     @instance.setter

@@ -84,6 +84,30 @@ class PublishTools(object):
         
         return work_fields
 
+    def getItemProperty(self, item, propertyName):
+        ''' Get the property of the item and check the parents if not found.
+
+        Args:
+            item            (:class:`Item`) :  The item to get the property.
+            propertyName    (str)           :  The property to get.
+
+        Returns:
+            The property value.
+        '''
+        # Get from the item properties.
+        property = item.properties.get(propertyName)
+        # If the property is not defined, get it from the parent item properties.
+        if (not property):
+            # Go through the parent until finding one with the property.
+            itemParent = item.parent
+            while (itemParent):
+                property = itemParent.properties.get(propertyName)
+                if(property):
+                    break
+                itemParent = itemParent.parent
+            
+        return property
+
     # Load functions.
 
     def loadABCExportPlugin(self):
@@ -325,7 +349,7 @@ class PublishTools(object):
         accepted = dict_["accepted"]
 
         # We use the MayaAsset class stored in the item to check if the current asset is a valid asset.
-        mayaAsset = item.parent.properties.get("assetObject")
+        mayaAsset = self.getItemProperty(item, "mayaObject")
 
         meshes = []
         if(lod == "LO"):
@@ -349,9 +373,15 @@ class PublishTools(object):
         sessionPath = self.getCurrentSessionPath(hookClass)
 
         # Use the working template to extract fields from sessionPath to solve the template path.
-        workTemplate = item.properties.get("work_template")
-        if not(workTemplate):
-            workTemplate = item.parent.properties.get("work_template")
+
+        # Get the work template from the item properties.
+        workTemplate = self.getItemProperty(item, "work_template")
+            
+        # If the work template is still not defined, raise an error.
+        if (not workTemplate):
+            error_msg = "The work template could not be determined for this item."
+            hookClass.logger.error(error_msg)
+            raise Exception(error_msg)
 
         workFields = self.getWorkTemplateFieldsFromPath(hookClass, workTemplate, sessionPath, addFields)
 
@@ -374,6 +404,34 @@ class PublishTools(object):
 
         return item
 
+    def hookPublishValidateMayaObject(self, hookClass, settings, item, propertiesPublishTemplate, addFields={}):
+        ''' Generic implementation of the validate method for the publish plugin hook.
+
+        Args:
+            settings                    (dict):     The keys are strings, matching
+                                                    the keys returned in the settings property. The values are `Setting`
+                                                    instances.
+            item                        (sgUIItem): Item to process
+        '''
+        # We use the MayaObject class stored in the item to check if the current object is valid.
+        mayaObject = self.getItemProperty(item, "mayaObject")
+        # Raise an error if the mayaObject is not defined.
+        if (not mayaObject):
+            error_msg = "The maya object is not defined in the properties of the items."
+            hookClass.logger.error(error_msg)
+            raise Exception(error_msg)
+
+
+        # Check if the mayaObject is valid.
+        if not (mayaObject.isValid()):
+            error_msg = "The maya object {} is not a valid. Please check the maya object structure.".format(mayaObject.fullname)
+            hookClass.logger.error(error_msg)
+            raise Exception(error_msg)
+
+        # Add the publish path datas to the publish item.
+        # That allow us to reuse the datas for the publish.
+        self.addPublishDatasToPublishItem(hookClass, item, propertiesPublishTemplate, addFields)
+
     def hookPublishValidate(self, hookClass, settings, item, propertiesPublishTemplate, isChild=False, addFields={}):
         ''' Generic implementation of the validate method for the publish plugin hook.
 
@@ -388,6 +446,8 @@ class PublishTools(object):
             mayaAsset = item.parent.properties.get("assetObject")
         else:
             mayaAsset = item.properties.get("assetObject")
+
+
 
         # Check if the asset root is a valid asset.
         if not (mayaAsset.isValid()):
@@ -496,7 +556,7 @@ class PublishTools(object):
         path = cmds.file(query=True, sn=True)
         cmds.file(path, force=True, open=True)
 
-    def hookPublishMayaRigLODPublish(self, hookClass, settings, item, lod, isChild=False):
+    def hookPublishMayaRigLODPublish(self, hookClass, settings, item, lod):
         ''' Generic implementation of the publish method for maya scene publish asset LOD plugin hook.
 
         Args:
@@ -505,22 +565,18 @@ class PublishTools(object):
                                                     instances.
             item                        (sgUIItem): Item to process
         '''
-        # Get the item asset object.
-        if(isChild):
-            asset = item.parent.properties["assetObject"]
-        else:
-            asset = item.properties["assetObject"]
+        mayaObject = self.getItemProperty(item, "mayaObject")
 
         # Delete the meshes lod that we don't need.
         if(lod == "LO"):
-            asset.deleteMeshesMI()
-            asset.deleteMeshesHI()
+            mayaObject.deleteMeshesMI()
+            mayaObject.deleteMeshesHI()
         elif(lod == "MI"):
-            asset.deleteMeshesLO()
-            asset.deleteMeshesHI()
+            mayaObject.deleteMeshesLO()
+            mayaObject.deleteMeshesHI()
         elif(lod == "HI"):
-            asset.deleteMeshesLO()
-            asset.deleteMeshesMI()
+            mayaObject.deleteMeshesLO()
+            mayaObject.deleteMeshesMI()
 
         # get the path to create and publish
         publish_path = item.properties["path"]
@@ -530,7 +586,7 @@ class PublishTools(object):
         hookClass.parent.ensure_folder_exists(publish_folder)
 
         # Pubish the asset rig.
-        self.exportMayaAssetRig(asset, publish_path)
+        self.exportMayaAssetRig(mayaObject, publish_path)
 
         # As there are modifications between the working file and the published file.
         # Reload the master scene.
@@ -539,7 +595,7 @@ class PublishTools(object):
 
     # Asset Alembic Publish functions.
 
-    def hookPublishAlembicLODPublish(self, hookClass, settings, item, lod, useFrameRange=False, isChild=False):
+    def hookPublishAlembicLODPublish(self, hookClass, settings, item, lod, useFrameRange=False):
         ''' Generic implementation of the publish method for alembic publish asset LOD plugin hook.
 
         Args:
@@ -548,16 +604,13 @@ class PublishTools(object):
                                                     instances.
             item                        (sgUIItem): Item to process
         '''
-        # Get the maya asset stored in the ui item.
-        if(isChild is True):
-            asset = item.parent.properties.get("assetObject")
-        else:
-            asset = item.properties.get("assetObject")
+        # Get the maya object in the item properties.
+        mayaObject = self.getItemProperty(item, "mayaObject")
 
         # Get the asset's meshes to export.
         if(lod == "LO"):
             # Remove the LOD specification of the meshes.
-            content = cmds.listRelatives(asset.groupMeshesLO, allDescendents=True, fullPath=True, type="transform")
+            content = cmds.listRelatives(mayaObject.groupMeshesLO, allDescendents=True, fullPath=True, type="transform")
             content.sort(key = lambda x : len(x.split('|')) , reverse = True)
             for transform in content:
                 # Get the shortname.
@@ -566,10 +619,10 @@ class PublishTools(object):
                 newName = shortName.replace("_low", "")
                 cmds.rename(transform, newName)
 
-            meshes = asset.meshesLO
+            meshes = mayaObject.meshesLO
         elif(lod == "MI"):
             # Remove the LOD specification of the meshes.
-            content = cmds.listRelatives(asset.groupMeshesMI, allDescendents=True, fullPath=True, type="transform")
+            content = cmds.listRelatives(mayaObject.groupMeshesMI, allDescendents=True, fullPath=True, type="transform")
             content.sort(key = lambda x : len(x.split('|')) , reverse = True)
             for transform in content:
                 # Get the shortname.
@@ -578,10 +631,10 @@ class PublishTools(object):
                 newName = shortName.replace("_mid", "")
                 cmds.rename(transform, newName)
 
-            meshes = asset.meshesMI
+            meshes = mayaObject.meshesMI
         elif(lod == "HI"):
             # Remove the LOD specification of the meshes.
-            content = cmds.listRelatives(asset.groupMeshesHI, allDescendents=True, fullPath=True, type="transform")
+            content = cmds.listRelatives(mayaObject.groupMeshesHI, allDescendents=True, fullPath=True, type="transform")
             content.sort(key = lambda x : len(x.split('|')) , reverse = True)
             for transform in content:
                 # Get the shortname.
@@ -590,7 +643,7 @@ class PublishTools(object):
                 newName = shortName.replace("_high", "")
                 cmds.rename(transform, newName)
 
-            meshes = asset.meshesHI
+            meshes = mayaObject.meshesHI
 
         if(useFrameRange):
             # Get the scene start and end frame.
@@ -603,6 +656,114 @@ class PublishTools(object):
         publish_path = item.properties["path"]
 
         # ensure the publish folder exists:
+        publish_folder = os.path.dirname(publish_path)
+        hookClass.parent.ensure_folder_exists(publish_folder)
+
+        # Export the asset's meshes in alembic path.
+        self.exportAlembic(
+            meshes,
+            startFrame,
+            endFrame,
+            publish_path,
+            exportABCVersion=2,
+            spaceType="local"
+        )
+
+        # As there are modifications between the working file and the published file.
+        # Reload the master scene.
+        path = cmds.file(query=True, sn=True)
+        cmds.file(path, force=True, open=True)
+
+    def hookPublishAlembicAnimationPublish(self, hookClass, settings, item, useFrameRange=False):
+        ''' Publish the deformation of the animated assets.
+
+        Args:
+            settings                    (dict):     The keys are strings, matching
+                                                    the keys returned in the settings property. The values are `Setting`
+                                                    instances.
+            item                        (sgUIItem): Item to process
+        '''
+        # Get the maya object.
+        mayaObject = self.getItemProperty(item, "mayaObject")
+
+        # Switch the current reference to the highest LOD.
+
+        # Get the path of the reference.
+        referencePath = os.path.normpath(mayaObject.referencePath)
+        # Use the maya_asset_rig_publish template to extract the data from the path.
+        template = hookClass.parent.get_template_by_name("maya_asset_rig_publish")
+        # Get the fields from the path.
+        fields = template.get_fields(referencePath)
+
+        higestLODFile = referencePath
+        highestLOD = fields.get("lod")
+        for lod in ["high", "mid", "low"]:
+            # Check if the file exists.
+            fields["lod"] = lod
+            lodFile = template.apply_fields(fields)
+            if(os.path.exists(lodFile)):
+                higestLODFile = lodFile
+                highestLOD = lod
+                break
+        
+        # Switch the reference to the highest LOD.
+        mayaObject.referencePath = higestLODFile
+
+        # Import the reference.
+        ref = mayaObject.referenceNode
+        refFile = cmds.referenceQuery(ref, filename=True)
+        cmds.file(refFile, importReference=True)
+
+        # Get the asset's meshes to export.
+        if(highestLOD == "low"):
+            # Remove the LOD specification of the meshes.
+            content = cmds.listRelatives(mayaObject.groupMeshesLO, allDescendents=True, fullPath=True, type="transform")
+            content.sort(key = lambda x : len(x.split('|')) , reverse = True)
+            for transform in content:
+                # Get the shortname.
+                shortName = transform.split("|")[-1]
+                # Remove the lod specification.
+                newName = shortName.replace("_low", "")
+                cmds.rename(transform, newName)
+
+            meshes = mayaObject.meshesLO
+        elif(highestLOD == "mid"):
+            # Remove the LOD specification of the meshes.
+            content = cmds.listRelatives(mayaObject.groupMeshesMI, allDescendents=True, fullPath=True, type="transform")
+            content.sort(key = lambda x : len(x.split('|')) , reverse = True)
+            for transform in content:
+                # Get the shortname.
+                shortName = transform.split("|")[-1]
+                # Remove the lod specification.
+                newName = shortName.replace("_mid", "")
+                cmds.rename(transform, newName)
+
+            meshes = mayaObject.meshesMI
+        elif(highestLOD == "high"):
+            # Remove the LOD specification of the meshes.
+            content = cmds.listRelatives(mayaObject.groupMeshesHI, allDescendents=True, fullPath=True, type="transform")
+            content.sort(key = lambda x : len(x.split('|')) , reverse = True)
+            for transform in content:
+                # Get the shortname.
+                shortName = transform.split("|")[-1]
+                # Remove the lod specification.
+                newName = shortName.replace("_high", "")
+                cmds.rename(transform, newName)
+
+            meshes = mayaObject.meshesHI
+
+        # Define the export frame range.
+        if(useFrameRange):
+            # Get the scene start and end frame.
+            startFrame, endFrame = self.getSceneFrameRange()
+        else:
+            startFrame = 1
+            endFrame = 1
+
+        # Get the path to create and publish.
+        publish_path = item.properties["path"]
+
+        # Ensure the publish folder exists:
         publish_folder = os.path.dirname(publish_path)
         hookClass.parent.ensure_folder_exists(publish_folder)
 
@@ -648,6 +809,7 @@ class PublishTools(object):
         self.exportMaterialX(asset, "default", publish_path, lod)
 
     # Environment Publish functions.
+    
     def hookPublishMayaEnvironmentPublish(self, hookClass, settings, item, isChild=False):
         ''' Generic implementation of the publish method for maya environment publish plugin hook.
 
@@ -673,6 +835,7 @@ class PublishTools(object):
         self.exportMayaEnvironment(mayaObject, publish_path)
 
     # Environment Alembic Publish functions.
+
     def hookPublishAlembicEnvironmentPublish(self, hookClass, settings, item, useFrameRange=False, isChild=False):
         ''' Generic implementation of the publish method for alembic publish environment plugin hook.
 
@@ -687,6 +850,8 @@ class PublishTools(object):
             mayaObject = item.parent.properties["mayaObject"]
         else:
             mayaObject = item.properties["mayaObject"]
+
+
 
         if(useFrameRange):
             # Get the scene start and end frame.
@@ -714,6 +879,77 @@ class PublishTools(object):
             exportABCVersion=2,
             spaceType="local",
             stripNamespace=False
+        )
+
+    def hookPublishAlembicAnimationEnvironmentPublish(self, hookClass, settings, item, useFrameRange=False):
+        ''' Generic implementation of the publish method for alembic publish environment plugin hook.
+
+        Args:
+            settings                    (dict):     The keys are strings, matching
+                                                    the keys returned in the settings property. The values are `Setting`
+                                                    instances.
+            item                        (sgUIItem): Item to process
+        '''
+        # Get the item maya object.
+        mayaObject = self.getItemProperty(item, "mayaObject")
+
+        if(useFrameRange):
+            # Get the scene start and end frame.
+            startFrame, endFrame = self.getSceneFrameRange()
+        else:
+            startFrame = 1
+            endFrame = 1
+
+        # get the path to create and publish
+        publish_path = item.properties["path"]
+
+        # ensure the publish folder exists:
+        publish_folder = os.path.dirname(publish_path)
+        hookClass.parent.ensure_folder_exists(publish_folder)
+
+        # Get the buffers of the animated assets.
+        meshes = []
+        # Get the animated assets in the properties.
+        animatedAssets = self.getItemProperty(item, "animatedAssets")
+        # Check if the animated assets exists.
+        for asset in animatedAssets:
+            meshes.extend( mayaObject.getAssetMainBuffers(asset) )
+
+        # Export the buffers as alembic.
+        self.exportAlembic(
+            meshes,
+            startFrame,
+            endFrame,
+            publish_path,
+            exportABCVersion=2,
+            spaceType="local",
+            stripNamespace=False
+        )
+
+    def hookPublishAlembicDeformationEnvironmentPublish(self, hookClass, settings, item, useFrameRange=False):
+        ''' Publish the deformation of the animated assets.
+
+        Args:
+            settings                    (dict):     The keys are strings, matching
+                                                    the keys returned in the settings property. The values are `Setting`
+                                                    instances.
+            item                        (sgUIItem): Item to process
+        '''
+        # Get the environment and the asset objects.
+        environmentObject = self.getItemProperty(item, "environmentObject")
+        assetObject = self.getItemProperty(item, "mayaObject")
+
+        # Import the environment reference.
+        ref = environmentObject.referenceNode
+        refFile = cmds.referenceQuery(ref, filename=True)
+        cmds.file(refFile, importReference=True)
+
+        # Execute the animated asset publish.
+        self.hookPublishAlembicAnimationPublish(
+            hookClass,
+            settings,
+            item,
+            useFrameRange   = useFrameRange
         )
 
     # Post Publish functions.
