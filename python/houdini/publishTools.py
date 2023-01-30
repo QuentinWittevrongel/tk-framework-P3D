@@ -80,6 +80,30 @@ class PublishTools(object):
         
         return work_fields
 
+    def getItemProperty(self, item, propertyName):
+        ''' Get the property of the item and check the parents if not found.
+
+        Args:
+            item            (:class:`Item`) :  The item to get the property.
+            propertyName    (str)           :  The property to get.
+
+        Returns:
+            The property value.
+        '''
+        # Get from the item properties.
+        property = item.properties.get(propertyName)
+        # If the property is not defined, get it from the parent item properties.
+        if (not property):
+            # Go through the parent until finding one with the property.
+            itemParent = item.parent
+            while (itemParent):
+                property = itemParent.properties.get(propertyName)
+                if(property):
+                    break
+                itemParent = itemParent.parent
+            
+        return property
+
     # Accept functions.
 
     def checkPublishTemplate(self, hookClass, template_name):
@@ -156,9 +180,7 @@ class PublishTools(object):
         sessionPath = self.getCurrentSessionPath(hookClass)
 
         # Use the working template to extract fields from sessionPath to solve the template path.
-        workTemplate = item.properties.get("work_template")
-        if (not workTemplate):
-            workTemplate = item.parent.properties.get("work_template")
+        workTemplate = self.getItemProperty(item, "work_template")
 
         # Get the work fields.
         workFields = self.getWorkTemplateFieldsFromPath(hookClass, workTemplate, sessionPath, addFields)
@@ -198,77 +220,6 @@ class PublishTools(object):
         # Add the publish path datas to the publish item.
         # That allow us to reuse the datas for the publish.
         self.addPublishDatasToPublishItem(hookClass, item, propertiesPublishTemplate, addFields)
-
-    # MaterialX Publish functions.
-
-    def hookPublishMaterialXPublish(self, hookClass, settings, item, isChild=False):
-        ''' Generic implementation of the validate method for the materialX publish plugin hook.
-
-        Args:
-            hookClass                   (:class:`PublishTask`)      : The hook plugin class.
-            settings                    (:class:`PluginSetting`)    : The keys are strings, matching the keys returned
-                                                                    in the settings property. The values are `Setting`
-                                                                    instances.
-            item                        (:class:`PublishItem`)      : Item to process
-            isChild                     (bool,  optional)           : True if the item is a child, otherwise False.
-                                                                    Defaults to False.
-        '''
-        # Get the node.
-        if(isChild):
-            node = item.parent.properties["node"]
-        else:
-            node = item.properties["node"]
-
-        # Get the path to create and publish.
-        publish_path = item.properties["path"]
-
-        # Ensure the publish folder exists.
-        publish_folder = os.path.dirname(publish_path)
-        hookClass.parent.ensure_folder_exists(publish_folder)
-
-        # Execute the run command of the ndoe.
-        node.render()
-
-        # Clean the materialX file.
-        self.fixMaterialXFile(publish_path)
-
-    # Post publish functions.
-
-    def fixMaterialXFile(self, filePath):
-        ''' Fix the materialX file and remove the unwanted material assignations.
-
-        Args:
-            filePath    (str)   : The path of the material X.
-        '''
-        # Clear the content of the mtlx file.
-        REGEXDELETE     = r'(.*<materialassign name="materialassign)\d+(" material=".*" geom=")(.*alembic:\d+)(" />\n)'
-        REGEXREPLACE    = r'(.*<materialassign name="materialassign)(\d+)(" material=".*" geom=")(.*)(" />\n)'
-        # Open the file and read the lines.
-        lines = []
-        with open(filePath, 'r') as file:
-            lines = file.readlines()
-        
-        # Remove unwanted lines.
-        for index in reversed(range(len(lines))):
-            line = lines[index]
-            if(re.search(REGEXDELETE, line)):
-                lines.pop(index)
-                
-        # Reassign the number of the material assign.
-        materialassignIndex = 1        
-        for index in range(len(lines)):
-            line = lines[index]
-            find = re.search(REGEXREPLACE, line)
-        
-            if(find):
-                groups = list(find.groups())
-                groups[1] = str(materialassignIndex)
-                materialassignIndex += 1
-                lines[index] = ''.join(groups)
-                
-        # Write the lines back to the file.
-        with open(filePath, 'w') as file: 
-            file.writelines(lines)
 
     # Reviews.
 

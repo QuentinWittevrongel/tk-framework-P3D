@@ -14,6 +14,9 @@ class MayaAsset(object):
 
         self.addMetadatas()
 
+    def __eq__(self, other):
+        return self._root == other._root
+
     def metadatasExist(self):
         ''' Check if the metadatas already exist on the asset root.
         '''

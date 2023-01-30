@@ -11,6 +11,8 @@ try:
     import os
     import re
 
+    from .technicalCheck.technicalCheck import TechnicalCheck
+
 except:
     pass
 
@@ -386,7 +388,9 @@ class PublishTools(object):
         workFields = self.getWorkTemplateFieldsFromPath(hookClass, workTemplate, sessionPath, addFields)
 
         # Get the template path.
+        print(publishTemplateName)
         publishTemplate = item.properties.get(publishTemplateName)
+        print(publishTemplate)
 
         # create the publish path by applying the fields. store it in the item's
         # properties. This is the path we'll create and then publish in the base
@@ -458,6 +462,46 @@ class PublishTools(object):
         # Add the publish path datas to the publish item.
         # That allow us to reuse the datas for the publish.
         self.addPublishDatasToPublishItem(hookClass, item, propertiesPublishTemplate, addFields)
+
+    # Asset Validate functions.
+
+    def hookPublishValidateAsset(self, hookClass, settings, item, propertiesPublishTemplate, resolution, addFields={}):
+
+        # Get the maya object.
+        mayaObject = self.getItemProperty(item, "mayaObject")
+        # Validate the asset.
+        errors = TechnicalCheck.validateAsset(
+            mayaObject
+        )
+
+        # Check the nodes.
+        errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalAll))
+        if(resolution == "LO"):
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesLO))
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalLO))
+        elif(resolution == "MI"):
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesMI))
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalMI))
+        elif(resolution == "HI"):
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesHI))
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalHI))
+
+        if(errors):
+            # Get the error message.
+            TechnicalCheck.logErrors(hookClass, errors)
+
+            errorMsg = 'The asset is not valid.'
+            hookClass.logger.error(errorMsg)
+            raise Exception(errorMsg)
+
+        # Perform the generic validation.
+        self.hookPublishValidateMayaObject(
+            hookClass,
+            settings,
+            item,
+            propertiesPublishTemplate,
+            addFields = addFields
+        )
 
     # Asset Publish functions.
 
@@ -868,7 +912,12 @@ class PublishTools(object):
         hookClass.parent.ensure_folder_exists(publish_folder)
 
         # Get the environment's asset's main buffers.
-        meshes = mayaObject.getAllAssetsMainBuffers()
+        # Get the assets to export.
+        assets = self.getItemProperty(item, "assets")
+        # Get the main buffers of the assets.
+        meshes = []
+        for asset in assets:
+            meshes.extend( mayaObject.getAssetMainBuffers(asset) )
 
         # Export the buffers as alembic.
         self.exportAlembic(
@@ -941,8 +990,9 @@ class PublishTools(object):
 
         # Import the environment reference.
         ref = environmentObject.referenceNode
-        refFile = cmds.referenceQuery(ref, filename=True)
-        cmds.file(refFile, importReference=True)
+        if(ref):
+            refFile = cmds.referenceQuery(ref, filename=True)
+            cmds.file(refFile, importReference=True)
 
         # Execute the animated asset publish.
         self.hookPublishAlembicAnimationPublish(
