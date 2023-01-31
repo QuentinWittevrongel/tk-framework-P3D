@@ -465,7 +465,7 @@ class PublishTools(object):
 
     # Asset Validate functions.
 
-    def hookPublishValidateAsset(self, hookClass, settings, item, propertiesPublishTemplate, resolution, addFields={}):
+    def hookPublishValidateAsset(self, hookClass, settings, item, propertiesPublishTemplate, resolution="ALL", addFields={}):
 
         # Get the maya object.
         mayaObject = self.getItemProperty(item, "mayaObject")
@@ -484,6 +484,13 @@ class PublishTools(object):
             errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalMI))
         elif(resolution == "HI"):
             errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesHI))
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalHI))
+        elif(resolution == "ALL"):
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesLO))
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesMI))
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesHI))
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalLO))
+            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalMI))
             errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalHI))
 
         if(errors):
@@ -505,7 +512,7 @@ class PublishTools(object):
 
     # Asset Publish functions.
 
-    def hookPublishMayaScenePublish(self, hookClass, settings, item, isChild=False):
+    def hookPublishMayaScenePublish(self, hookClass, settings, item):
         ''' Generic implementation of the publish method for maya scene publish plugin hook.
 
         Args:
@@ -515,10 +522,7 @@ class PublishTools(object):
             item                        (sgUIItem): Item to process
         '''
         # Get the item asset object.
-        if(isChild):
-            mayaObject = item.parent.properties["assetObject"]
-        else:
-            mayaObject = item.properties["assetObject"]
+        mayaObject = self.getItemProperty(item, "mayaObject")
 
         # get the path to create and publish
         publish_path = item.properties["path"]
