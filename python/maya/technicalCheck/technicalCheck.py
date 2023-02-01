@@ -1,3 +1,4 @@
+# Try to import maya module to avoid error when the module is loaded outside of maya.
 try:
     from    maya            import  cmds
 
@@ -33,7 +34,6 @@ class TechnicalCheck():
             bool: True if the asset is valid.
         '''
         errors = []
-        return errors
         # Check the hierarchy of the asset.
         if (not cls.validateAssetHierarchy(mayaAsset)):
             # Add the error to the list.
@@ -84,7 +84,6 @@ class TechnicalCheck():
 
         # Create a list to store the errors.
         errors = []
-        return errors
 
         # Loop though the content.
         for node in content:
@@ -109,7 +108,7 @@ class TechnicalCheck():
                 
                 continue
 
-            # Get the ndoe end tag.
+            # Get the node end tag.
             nodeEndTag = node.split('_')[-1]
             # If the end tag if a resolution, get the previous tag.
             if(nodeEndTag in ['low', 'mid', 'high']):
@@ -252,7 +251,8 @@ class TechnicalCheck():
                 hooklass.logger.error("The name of {} is invalid.".format( error['node'] ))
             
             elif(error["errorType"] == "shapeName"):
-                hooklass.logger.error("The shape name of {} is invalid.".format( error['node'] ))
+                hooklass.logger.error(
+                    "The shape name of {} is invalid.".format( error['node'] ))
         
             elif(error["errorType"] == "content"):
                 hooklass.logger.error("The content of {} is invalid.".format( error['node'] ))
@@ -261,10 +261,50 @@ class TechnicalCheck():
                 hooklass.logger.error("The node {} has history that should be deleted.".format( error['node'] ))
 
             elif(error["errorType"] == "transform"):
-                hooklass.logger.error("The node {} has transforms that should be frozen.".format( error['node'] ))
+                hooklass.logger.error(
+                    "The node {} has transforms that should be frozen.".format( error['node'] ))
 
             elif(error["errorType"] == "pivot"):
-                hooklass.logger.error("The pivot of {} is not identity.".format( error['node'] ))
+                hooklass.logger.error(
+                    "The pivot of {} is not identity.".format( error['node'] ))
                 
             else:
                 hooklass.logger.error("An error has been encoutered {}".format(error))
+
+# FIX METHODS
+    @classmethod
+    def renameShape(cls, shapeNode):
+        ''' Rename the shape of the node to correspond to the node name.
+
+        Args:
+            shapeNode (str): The shape node to rename.
+        '''
+        # Get the parent of the shape.
+        parent = cmds.listRelatives(shapeNode, parent=True)[0]
+        # Get the shot name.
+        parent = parent.split('|')[-1]
+        # Check if the shape has Orig at the end of its name.
+        if(shapeNode.endswith("Orig")):
+            # Rename the shape.
+            cmds.rename(shapeNode, parent + "Orig")
+        else:
+            # Rename the shape.
+            cmds.rename(shapeNode, parent + "Shape")
+        
+    @classmethod
+    def freezeTransforms(cls, node):
+        ''' Freeze the transforms of the node.
+
+        Args:
+            node (str): The node to freeze.
+        '''
+        cmds.makeIdentity(node, apply=True, t=1, r=1, s=1, n=0)
+    
+    @classmethod
+    def makePivotIdentity(cls, node):
+        ''' Make the pivot of the node identity.
+
+        Args:
+            node (str): The node to make the pivot identity.
+        '''
+        cmds.xform(node, pivots=(0,0,0), worldSpace=True)

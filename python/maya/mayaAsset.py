@@ -127,7 +127,7 @@ class MayaAsset(object):
         Returns:
             str: The group full path.
         '''
-        subGroups = cmds.listRelatives(parent, allDescendents=False, type="transform", fullPath=True)
+        subGroups = cmds.listRelatives(parent, allDescendents=False, type="transform", fullPath=True) or []
 
         for group in subGroups:
             if(group.find(groupName) != -1):
