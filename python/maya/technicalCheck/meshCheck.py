@@ -36,7 +36,7 @@ class MeshTechnicalCheck(ObjectTechnicalCheck):
         Returns:
             bool: True if the node should perform the transform check.
         '''
-        return True
+        return False
 
     @classmethod
     def doCheckPivot(cls):
