@@ -221,6 +221,41 @@ class PublishTools(object):
         # That allow us to reuse the datas for the publish.
         self.addPublishDatasToPublishItem(hookClass, item, propertiesPublishTemplate, addFields)
 
+    # Publish functions.
+
+    def hookPublishDigitalAssetPublish(self, hookClass, settings, item):
+
+        publisher = hookClass.parent
+
+        # Get the path to create and publish.
+        publish_path = item.properties["path"]
+
+        # Ensure the publish folder exists.
+        publish_folder = os.path.dirname(publish_path)
+        publisher.ensure_folder_exists(publish_folder)
+
+        # Get the node.
+        node = item.properties["node"]
+        # Get the node definition.
+        nodeDefinition = node.type().definition()
+
+        # Get the new node name.
+        nodeName = os.path.basename(publish_path).replace('.v', '_')
+
+        # Save the node.
+        nodeDefinition.save( nodeDefinition.libraryFilePath() )
+
+        # Copy the node definition.
+        nodeDefinition.copyToHDAFile(
+            file_name       = publish_path,
+            new_name        = nodeName,
+            new_menu_name   = nodeName
+        )
+
+        # Lock the node.
+        node.matchCurrentDefinition()
+
+
     # Reviews.
 
     def hookUploadReviewValidate(self, hookClass, settings, item):
