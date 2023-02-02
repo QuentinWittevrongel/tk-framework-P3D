@@ -104,7 +104,7 @@ class MayaObject(object):
     @property
     def instance(self):
         if(self.isReferenced()):
-            return  int(self._root.split(":")[0].split("_")[1])
+            return int(self._root.split('|')[-1].split(":")[0].split("_")[1])
         return None
 
     @instance.setter

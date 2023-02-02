@@ -56,7 +56,7 @@ class LoadTools(object):
         ]
 
         # Get the Maya object and set the shotgrid metadata.
-        mayaObject = MayaObject(assetRoot=rootNodes[0])
+        mayaObject = MayaObject(root=rootNodes[0])
         mayaObject.sgMetadatas = sg_publish_data
 
         # Return the Maya object.
@@ -80,7 +80,7 @@ class LoadTools(object):
         # Get the last instance number.
         lastInstanceNumber = self.getLastInstanceNumber(name)
         # Create the instance name.
-        instanceName = '{NAME}_{INSTANCE:03d}'.format(NAME=name, INSTANCE=lastInstanceNumber + 1)
+        instanceName = '{NAME}_{INSTANCE:03d}_WN'.format(NAME=name, INSTANCE=lastInstanceNumber + 1)
 
         # Import the file as reference.
         nodes = cmds.file(
