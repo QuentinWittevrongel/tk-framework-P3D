@@ -294,16 +294,21 @@ class MayaAsset(object):
         Returns:
             bool: True if the node is deformed, False otherwise.
         '''
+
+        meshesGrp = []
+        if(self.groupMeshesHI):
+            meshesGrp.append(self.groupMeshesHI)
+        if(self.groupMeshesMI):
+            meshesGrp.append(self.groupMeshesMI)
+        if(self.groupMeshesLO):
+            meshesGrp.append(self.groupMeshesLO)
+
         # Get the shapes.
         shapes = cmds.listRelatives(
-            [
-            self.groupMeshesHI,
-            self.groupMeshesMI,
-            self.groupMeshesLO,
-            ],
+            meshesGrp,
             allDescendents = True,
             type='mesh'
-        )
+        ) or []
 
         # Get the origShapes.
         origShapes = [shape for shape in shapes if shape.endswith('ShapeOrig')]

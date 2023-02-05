@@ -121,16 +121,13 @@ class ObjectTechnicalCheck:
         nodeName = node.split('|')[-1]
         # Remove the namespace.
         nodeName = nodeName.split(':')[-1]
-        print(nodeName)
         # Get the template from the node name.
         template = cls.getTemplateFromName(nodeName)
-        print(template)
         # Check if the template is valid.
         if(not template):
             return False
         # Check if the template is valid.
         availableTemplates = cls.getAvailableNameTemplates()
-        print(availableTemplates)
         if(not template in availableTemplates):
             return False
         return True

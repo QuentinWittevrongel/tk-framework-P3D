@@ -92,6 +92,48 @@ class LoadTools(object):
         # Return the new node.
         return mtlx_node
 
+    def importSOPHDA(self, name, path, sg_publish_data):
+        ''' Import the HDA file in the sop context.
+
+        Args:
+            name                (str)   : The entity name.
+            path                (str)   : The path to reference.
+            sg_publish_data     (dict)  : The shotgrid publish data.
+
+        Return:
+            :class:`hou.Node`           : The new node created.
+        '''
+        # Check if the file exists on disk.
+        if(not os.path.exists(path)):
+            raise Exception("File not found on disk - '%s'" % path)
+
+        # Get the geo context.
+        obj_context = self.get_current_context("/obj")
+
+        # Import the HDA.
+        hou.hda.installFile(path)
+
+        # Get the difinitions inside.
+        definitions = hou.hda.definitionsInFile(path)
+        # Get the lastest.
+        definition = definitions[-1]
+        # Get the node type name.
+        node_type_name = definition.nodeType().name()
+
+        # Get the name from the publish data.
+        node_name = sg_publish_data.get("name")
+        node_name = os.path.splitext(node_name)[0]
+        node_name = node_name.split('_')[-1]
+        # Create the HDA node.
+        hda_node = obj_context.createNode(node_type_name, node_name)
+
+        # Show the node.
+        self.show_node(hda_node)
+
+        # Return the new node.
+        return hda_node
+
+
     @classmethod
     def get_current_context(cls, context_type):
         """Attempts to return the current node context.

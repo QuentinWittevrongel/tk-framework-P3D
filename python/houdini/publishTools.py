@@ -255,7 +255,6 @@ class PublishTools(object):
         # Lock the node.
         node.matchCurrentDefinition()
 
-
     # Reviews.
 
     def hookUploadReviewValidate(self, hookClass, settings, item):
