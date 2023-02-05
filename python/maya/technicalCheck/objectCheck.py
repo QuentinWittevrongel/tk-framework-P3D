@@ -175,9 +175,11 @@ class ObjectTechnicalCheck:
                 elif(partType == 'int'):
                     # Check if the element is a number.
                     if(element.isdigit()):
-                        # Set the template part.
-                        template[i] = partName
-                        break
+                        # Check if the number is formated with 3 digits.
+                        if(len(element) == 3):
+                            # Set the template part.
+                            template[i] = partName
+                            break
                 
                 # If the element is not in the values, then it is not a valid template.
                 template[i] = '{UNDEFINED}'
