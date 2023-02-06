@@ -27,7 +27,7 @@ class GroupTechnicalCheck(ObjectTechnicalCheck):
         Returns:
             bool: True if the node should perform the history check.
         '''
-        return True
+        return False
 
     @classmethod
     def doCheckTransform(cls):
@@ -36,7 +36,7 @@ class GroupTechnicalCheck(ObjectTechnicalCheck):
         Returns:
             bool: True if the node should perform the transform check.
         '''
-        return True
+        return False
 
     @classmethod
     def doCheckPivot(cls):
