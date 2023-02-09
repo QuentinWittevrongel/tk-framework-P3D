@@ -100,12 +100,18 @@ class TechnicalCheck():
                 parentName = parent.split('|')[-1].split(':')[-1]
 
                 # Check if the shape name is correct.
-                if(not (nodeName == parentName + 'Shape' or nodeName == parentName + 'ShapeOrig')):
+                if(not (nodeName.endswith('Shape') or nodeName.endswith('ShapeOrig'))):
                     errors.append({
                         'node'      : node,
                         'errorType' : 'shapeName'
                     })
                 
+                if(nodeName.find('polySurface') != -1):
+                    errors.append({
+                        'node'      : node,
+                        'errorType' : 'shapeName'
+                    })
+
                 continue
 
             # Get the node end tag.

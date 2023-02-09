@@ -92,8 +92,8 @@ class LoadTools(object):
         # Return the new node.
         return mtlx_node
 
-    def importSOPHDA(self, name, path, sg_publish_data):
-        ''' Import the HDA file in the sop context.
+    def importOBJHDA(self, name, path, sg_publish_data):
+        ''' Import the HDA file in the Object context.
 
         Args:
             name                (str)   : The entity name.
@@ -107,8 +107,8 @@ class LoadTools(object):
         if(not os.path.exists(path)):
             raise Exception("File not found on disk - '%s'" % path)
 
-        # Get the geo context.
-        obj_context = self.get_current_context("/obj")
+        # Get the Object context.
+        objContext = self.get_current_context("/obj")
 
         # Import the HDA.
         hou.hda.installFile(path)
@@ -118,14 +118,12 @@ class LoadTools(object):
         # Get the lastest.
         definition = definitions[-1]
         # Get the node type name.
-        node_type_name = definition.nodeType().name()
+        nodeTypeName = definition.nodeType().name()
+        # Remove the version from the name.
+        nodeName = nodeTypeName.split('.v')[0]
 
-        # Get the name from the publish data.
-        node_name = sg_publish_data.get("name")
-        node_name = os.path.splitext(node_name)[0]
-        node_name = node_name.split('_')[-1]
         # Create the HDA node.
-        hda_node = obj_context.createNode(node_type_name, node_name)
+        hda_node = objContext.createNode(nodeTypeName, nodeName)
 
         # Show the node.
         self.show_node(hda_node)

@@ -63,14 +63,17 @@ class MeshTechnicalCheck(ObjectTechnicalCheck):
         if(not content):
             return False
         
-        # Return False if the node has more than 2 children.
-        if(len(content) > 2):
-            return False
+        # # Return False if the node has more than 2 children.
+        # if(len(content) > 2):
+        #     return False
 
-        # Check if the children are valid
-        for child in content:
-            if(cmds.nodeType(child) != 'mesh'):
-                return False
+        # Check if all the content is a mesh.
+        fullMesh = all([cmds.nodeType(child) == 'mesh' for child in content])
+        # Check if all the content is a nurbsCurve.
+        fullCurve = all([cmds.nodeType(child) == 'nurbsCurve' for child in content])
+
+        if(not (fullMesh or fullCurve)):
+            return False
         
         return True
 
