@@ -224,7 +224,15 @@ class PublishTools(object):
     # Publish functions.
 
     def hookPublishDigitalAssetPublish(self, hookClass, settings, item):
-
+        ''' Generic implementation of the publish method for the publish plugin hook.
+        
+        Args:
+            hookClass   (:class:`PublishTask`)      : The hook plugin class.
+            settings    (:class:`PluginSetting`)    : The keys are strings, matching the keys returned
+                                                    in the settings property. The values are `Setting`
+                                                    instances.
+            item        (:class:`PublishItem`)      : Item to process
+        '''
         publisher = hookClass.parent
 
         # Get the path to create and publish.
@@ -238,18 +246,19 @@ class PublishTools(object):
         node = item.properties["node"]
         # Get the node definition.
         nodeDefinition = node.type().definition()
-
-        # Get the new node name.
-        nodeName = os.path.basename(publish_path).replace('.v', '_')
-
         # Save the node.
-        nodeDefinition.save( nodeDefinition.libraryFilePath() )
+        nodeDefinition.updateFromNode(node)
+
+        # Get the filename.
+        filename = os.path.basename(publish_path)
+        # Split the extension.
+        filename, extension = os.path.splitext(filename)
 
         # Copy the node definition.
         nodeDefinition.copyToHDAFile(
             file_name       = publish_path,
-            new_name        = nodeName,
-            new_menu_name   = nodeName
+            new_name        = filename,
+            new_menu_name   = filename
         )
 
         # Lock the node.

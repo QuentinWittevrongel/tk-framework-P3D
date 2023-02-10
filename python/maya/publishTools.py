@@ -99,12 +99,12 @@ class PublishTools(object):
         # Get from the item properties.
         property = item.properties.get(propertyName)
         # If the property is not defined, get it from the parent item properties.
-        if (not property):
+        if (property is None):
             # Go through the parent until finding one with the property.
             itemParent = item.parent
-            while (itemParent):
+            while (itemParent is not None):
                 property = itemParent.properties.get(propertyName)
-                if(property):
+                if(property is not None):
                     break
                 itemParent = itemParent.parent
             
