@@ -45,7 +45,7 @@ class MeshTechnicalCheck(ObjectTechnicalCheck):
         Returns:
             bool: True if the node should perform the pivot check.
         '''
-        return True
+        return False
 
     @classmethod
     def validateContent(cls, node):
