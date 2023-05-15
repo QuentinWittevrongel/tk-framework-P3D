@@ -35,8 +35,8 @@ class PublishTools(object):
         Returns:
             tuple(int, int) : The start and end frame.
         '''
-        startFrame  = cmds.playbackOptions(q=True, min=True)
-        endFrame    = cmds.playbackOptions(q=True, max=True)
+        startFrame  = cmds.playbackOptions(q=True, animationStartTime=True)
+        endFrame    = cmds.playbackOptions(q=True, animationEndTime=True)
 
         return startFrame, endFrame
 
