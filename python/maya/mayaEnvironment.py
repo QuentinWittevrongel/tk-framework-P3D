@@ -25,10 +25,15 @@ class MayaEnvironment(MayaObject):
         Returns:
             str: The group full path.
         '''
-        subGroups = cmds.listRelatives(parent, allDescendents=False, type="transform", fullPath=True)
+        subGroups = cmds.listRelatives(parent, allDescendents=False, type="transform", fullPath=True) or []
 
         for group in subGroups:
-            if(group.find(groupName) != -1):
+            # Get the group short name.
+            groupShortName = group.split("|")[-1]
+            # Remove the namespace.
+            groupShortName = groupShortName.split(":")[-1]
+            # Check if the group name is the same.
+            if(groupShortName == groupName):
                 return group
         
         return None
@@ -40,7 +45,7 @@ class MayaEnvironment(MayaObject):
             list(:class:`MayaAsset`)    : The assets in the environment.
         '''
         # Get the content of the environment.
-        content = cmds.listRelatives(self.groupMeshes, allDescendents=True, type="transform", fullPath=True)
+        content = cmds.listRelatives(self.groupMeshes, allDescendents=True, type="transform", fullPath=True) or []
 
         # Loop over the content and get the assets.
         assets = []

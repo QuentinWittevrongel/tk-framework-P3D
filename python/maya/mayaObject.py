@@ -134,7 +134,7 @@ class MayaObject(object):
     def referencePath(self):
         reference = self.referenceNode
         if(reference):
-            return cmds.referenceQuery(reference, filename=True)
+            return cmds.referenceQuery(reference, filename=True).split("{")[0]
         return None
     
     @referencePath.setter

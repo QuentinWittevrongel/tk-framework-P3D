@@ -921,7 +921,8 @@ class PublishTools(object):
         # Get the main buffers of the assets.
         meshes = []
         for asset in assets:
-            meshes.extend( mayaObject.getAssetMainBuffers(asset) )
+            mainBuffers = mayaObject.getAssetMainBuffers(asset)
+            meshes.extend( mainBuffers )
 
         # Export the buffers as alembic.
         self.exportAlembic(

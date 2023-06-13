@@ -130,7 +130,12 @@ class MayaAsset(object):
         subGroups = cmds.listRelatives(parent, allDescendents=False, type="transform", fullPath=True) or []
 
         for group in subGroups:
-            if(group.find(groupName) != -1):
+            # Get the group short name.
+            groupShortName = group.split("|")[-1]
+            # Remove the namespace.
+            groupShortName = groupShortName.split(":")[-1]
+            # Check if the group name is the same.
+            if(groupShortName == groupName):
                 return group
         
         return None
@@ -473,7 +478,7 @@ class MayaAsset(object):
     def referencePath(self):
         reference = self.referenceNode
         if(reference):
-            return cmds.referenceQuery(reference, filename=True)
+            return cmds.referenceQuery(reference, filename=True).split("{")[0]
         return None
     
     @referencePath.setter
