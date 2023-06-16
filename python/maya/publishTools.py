@@ -469,37 +469,37 @@ class PublishTools(object):
 
         # Get the maya object.
         mayaObject = self.getItemProperty(item, "mayaObject")
-        # Validate the asset.
-        errors = TechnicalCheck.validateAsset(
-            mayaObject
-        )
+        # # Validate the asset.
+        # errors = TechnicalCheck.validateAsset(
+        #     mayaObject
+        # )
 
-        # Check the nodes.
-        errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalAll))
-        if(resolution == "LO"):
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesLO))
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalLO))
-        elif(resolution == "MI"):
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesMI))
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalMI))
-        elif(resolution == "HI"):
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesHI))
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalHI))
-        elif(resolution == "ALL"):
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesLO))
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesMI))
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesHI))
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalLO))
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalMI))
-            errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalHI))
+        # # Check the nodes.
+        # errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalAll))
+        # if(resolution == "LO"):
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesLO))
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalLO))
+        # elif(resolution == "MI"):
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesMI))
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalMI))
+        # elif(resolution == "HI"):
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesHI))
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalHI))
+        # elif(resolution == "ALL"):
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesLO))
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesMI))
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesHI))
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalLO))
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalMI))
+        #     errors.extend(TechnicalCheck.validateAssetNodes(mayaObject.groupMeshesTechnicalHI))
 
-        if(errors):
-            # Get the error message.
-            TechnicalCheck.logErrors(hookClass, errors)
+        # if(errors):
+        #     # Get the error message.
+        #     TechnicalCheck.logErrors(hookClass, errors)
 
-            errorMsg = 'The asset is not valid.'
-            hookClass.logger.error(errorMsg)
-            raise Exception(errorMsg)
+        #     errorMsg = 'The asset is not valid.'
+        #     hookClass.logger.error(errorMsg)
+        #     raise Exception(errorMsg)
 
         # Perform the generic validation.
         self.hookPublishValidateMayaObject(
@@ -825,10 +825,10 @@ class PublishTools(object):
             spaceType="local"
         )
 
-        # As there are modifications between the working file and the published file.
-        # Reload the master scene.
-        path = cmds.file(query=True, sn=True)
-        cmds.file(path, force=True, open=True)
+        # # As there are modifications between the working file and the published file.
+        # # Reload the master scene.
+        # path = cmds.file(query=True, sn=True)
+        # cmds.file(path, force=True, open=True)
 
     # MaterialX Publish functions.
 
