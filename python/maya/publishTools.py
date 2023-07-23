@@ -736,58 +736,36 @@ class PublishTools(object):
 
         # Switch the current reference to the highest LOD.
 
-        # Get the path of the reference.
-        referencePath = os.path.normpath(mayaObject.referencePath)
-        # Use the maya_asset_rig_publish template to extract the data from the path.
-        template = hookClass.parent.get_template_by_name("maya_asset_rig_publish")
-        # Get the fields from the path.
-        fields = template.get_fields(referencePath)
+        if(mayaObject.referenceNode):
 
-        higestLODFile = referencePath
-        highestLOD = fields.get("lod")
-        for lod in ["high", "mid", "low"]:
-            # Check if the file exists.
-            fields["lod"] = lod
-            lodFile = template.apply_fields(fields)
-            if(os.path.exists(lodFile)):
-                higestLODFile = lodFile
-                highestLOD = lod
-                break
-        
-        # Switch the reference to the highest LOD.
-        mayaObject.referencePath = higestLODFile
+            # Get the path of the reference.
+            referencePath = os.path.normpath(mayaObject.referencePath)
+            # Use the maya_asset_rig_publish template to extract the data from the path.
+            template = hookClass.parent.get_template_by_name("maya_asset_rig_publish")
+            # Get the fields from the path.
+            fields = template.get_fields(referencePath)
 
-        # Import the reference.
-        ref = mayaObject.referenceNode
-        refFile = cmds.referenceQuery(ref, filename=True)
-        cmds.file(refFile, importReference=True)
+            higestLODFile = referencePath
+            highestLOD = fields.get("lod")
+            for lod in ["high", "mid", "low"]:
+                # Check if the file exists.
+                fields["lod"] = lod
+                lodFile = template.apply_fields(fields)
+                if(os.path.exists(lodFile)):
+                    higestLODFile = lodFile
+                    highestLOD = lod
+                    break
+            
+            # Switch the reference to the highest LOD.
+            mayaObject.referencePath = higestLODFile
+
+            # Import the reference.
+            ref = mayaObject.referenceNode
+            refFile = cmds.referenceQuery(ref, filename=True)
+            cmds.file(refFile, importReference=True)
 
         # Get the asset's meshes to export.
-        if(highestLOD == "low"):
-            # Remove the LOD specification of the meshes.
-            content = cmds.listRelatives(mayaObject.groupMeshesLO, allDescendents=True, fullPath=True, type="transform")
-            content.sort(key = lambda x : len(x.split('|')) , reverse = True)
-            for transform in content:
-                # Get the shortname.
-                shortName = transform.split("|")[-1]
-                # Remove the lod specification.
-                newName = shortName.replace("_low", "")
-                cmds.rename(transform, newName)
-
-            meshes = mayaObject.meshesLO
-        elif(highestLOD == "mid"):
-            # Remove the LOD specification of the meshes.
-            content = cmds.listRelatives(mayaObject.groupMeshesMI, allDescendents=True, fullPath=True, type="transform")
-            content.sort(key = lambda x : len(x.split('|')) , reverse = True)
-            for transform in content:
-                # Get the shortname.
-                shortName = transform.split("|")[-1]
-                # Remove the lod specification.
-                newName = shortName.replace("_mid", "")
-                cmds.rename(transform, newName)
-
-            meshes = mayaObject.meshesMI
-        elif(highestLOD == "high"):
+        if(mayaObject.meshesHI):
             # Remove the LOD specification of the meshes.
             content = cmds.listRelatives(mayaObject.groupMeshesHI, allDescendents=True, fullPath=True, type="transform")
             content.sort(key = lambda x : len(x.split('|')) , reverse = True)
@@ -797,8 +775,31 @@ class PublishTools(object):
                 # Remove the lod specification.
                 newName = shortName.replace("_high", "")
                 cmds.rename(transform, newName)
-
             meshes = mayaObject.meshesHI
+            
+        elif(mayaObject.meshesMI):
+            # Remove the LOD specification of the meshes.
+            content = cmds.listRelatives(mayaObject.groupMeshesMI, allDescendents=True, fullPath=True, type="transform")
+            content.sort(key = lambda x : len(x.split('|')) , reverse = True)
+            for transform in content:
+                # Get the shortname.
+                shortName = transform.split("|")[-1]
+                # Remove the lod specification.
+                newName = shortName.replace("_mid", "")
+                cmds.rename(transform, newName)
+            meshes = mayaObject.meshesMI
+
+        elif(mayaObject.meshesLO):
+            # Remove the LOD specification of the meshes.
+            content = cmds.listRelatives(mayaObject.groupMeshesLO, allDescendents=True, fullPath=True, type="transform")
+            content.sort(key = lambda x : len(x.split('|')) , reverse = True)
+            for transform in content:
+                # Get the shortname.
+                shortName = transform.split("|")[-1]
+                # Remove the lod specification.
+                newName = shortName.replace("_low", "")
+                cmds.rename(transform, newName)
+            meshes = mayaObject.meshesLO
 
         # Define the export frame range.
         if(useFrameRange):
